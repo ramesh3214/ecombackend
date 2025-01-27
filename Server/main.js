@@ -5,10 +5,10 @@ import cors from "cors";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
-import { Product } from "../Model/Product.js";
-import { Coupon } from "../Model/coupon.js";
-import { Contact } from "../Model/contact.js";
-import { Order } from "../Model/order.js";
+import { Product } from "./Model/Product.js";
+import { Coupon } from "./Model/coupon.js";
+import { Contact } from "./Model/contact.js";
+import { Order } from "./Model/order.js";
 import nodemailer from "nodemailer";
 
 // Load environment variables
