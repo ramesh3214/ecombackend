@@ -17,7 +17,7 @@ dotenv.config();
 // App initialization
 const app = express();
 const PORT = process.env.PORT;
-const JWT_SECRET= "jwt_123";
+const JWT_SECRET = "jwt_123";
 
 // Middleware setup
 app.use(
@@ -31,9 +31,7 @@ app.use(express.json()); // Parse JSON requests
 
 // MongoDB Connection
 mongoose
-  .connect(
-    process.env.MONGODB_URI, {}
-  )
+  .connect(process.env.MONGODB_URI, {})
   .then(() => console.log("Connected to MongoDB"))
   .catch((error) => {
     console.error("MongoDB connection error:", error.message);
@@ -185,11 +183,9 @@ app.post("/signup", async (req, res) => {
 
     await transporter.sendMail(mailOptions);
 
-    res
-      .status(201)
-      .json({
-        message: "User registered successfully. Confirmation email sent.",
-      });
+    res.status(201).json({
+      message: "User registered successfully. Confirmation email sent.",
+    });
   } catch (error) {
     console.error("Signup error:", error.message);
     res.status(500).json({ error: "Signup failed." });
@@ -201,24 +197,38 @@ app.post("/signin", async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    // Validate inputs
     if (!email || !password) {
       return res
         .status(400)
         .json({ error: "Email and password are required." });
     }
 
+    // Find user by email
     const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ error: "User not found." });
+    }
 
-    if (!user || !(await bcrypt.compare(password, user.password))) {
+    // Validate password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
       return res.status(401).json({ error: "Invalid email or password." });
     }
 
-    const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: "1h" });
+    // Generate JWT
+    const token = jwt.sign({ _id: user._id, email: user.email }, JWT_KEY, {
+      expiresIn: "24h",
+    });
 
-    res.status(200).json({ message: "Signin successful.", token });
+    res.status(200).json({
+      message: "Login successful",
+      user: { id: user._id, name: user.name, email: user.email },
+      token,
+    });
   } catch (error) {
     console.error("Signin error:", error.message);
-    res.status(500).json({ error: "Signin failed." });
+    res.status(500).json({ error: "Internal server error." });
   }
 });
 
