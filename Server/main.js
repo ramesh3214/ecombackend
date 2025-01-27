@@ -5,11 +5,11 @@ import cors from "cors";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
-import { User } from "../Model/User.js";
 import { Product } from "../Model/Product.js";
 import { Coupon } from "../Model/coupon.js";
 import { Contact } from "../Model/contact.js";
 import { Order } from "../Model/order.js";
+import nodemailer from "nodemailer";
 
 // Load environment variables
 dotenv.config();
@@ -17,8 +17,7 @@ dotenv.config();
 // App initialization
 const app = express();
 const PORT = 3002;
-const JWT_KEY = "jwt_123";
-
+const JWT_SECRET= "jwt_123";
 
 // Middleware setup
 app.use(
@@ -32,9 +31,9 @@ app.use(express.json()); // Parse JSON requests
 
 // MongoDB Connection
 mongoose
-  .connect("mongodb+srv://vraj73833:mRKQRPNB4nNyZ5RO@cluster3.wji4x.mongodb.net/ecom", {
-   
-  })
+  .connect(
+    process.env.MONGODB_URI, {}
+  )
   .then(() => console.log("Connected to MongoDB"))
   .catch((error) => {
     console.error("MongoDB connection error:", error.message);
@@ -62,70 +61,164 @@ app.get("/api", (req, res) => {
 });
 
 // User Signup Route
+const userSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  email: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+});
+
+const User = mongoose.model("User", userSchema);
+
+// Define OTP Schema and Model
+const otpSchema = new mongoose.Schema({
+  email: { type: String, required: true },
+  otp: { type: String, required: true },
+  expiresAt: { type: Date, required: true },
+});
+
+const Otp = mongoose.model("Otp", otpSchema);
+
+// Set up Nodemailer Transporter
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.User_email, // Your email address
+    pass: process.env.Password, // Your email password or app password
+  },
+});
+
+// Generate OTP Function
+const generateOtp = () =>
+  Math.floor(100000 + Math.random() * 900000).toString();
+
+// Routes
+
+// 1. Send OTP
+app.post("/send-otp", async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: "Email is required." });
+    }
+
+    // Generate OTP and save it in the database
+    const otp = generateOtp();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // OTP valid for 5 minutes
+
+    await Otp.create({ email, otp, expiresAt });
+
+    // Send OTP via email
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: "Your OTP Code",
+      text: `Your OTP code is ${otp}. It is valid for 5 minutes.`,
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    res.status(200).json({ message: "OTP sent successfully." });
+  } catch (error) {
+    console.error("Error sending OTP:", error.message);
+    res.status(500).json({ error: "Failed to send OTP." });
+  }
+});
+
+// 2. Verify OTP
+app.post("/verify-otp", async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).json({ error: "Email and OTP are required." });
+    }
+
+    const otpData = await Otp.findOne({ email });
+
+    if (!otpData) {
+      return res.status(400).json({ error: "OTP not found for this email." });
+    }
+
+    if (otpData.expiresAt < Date.now()) {
+      await Otp.deleteOne({ email }); // Remove expired OTP
+      return res.status(400).json({ error: "OTP has expired." });
+    }
+
+    if (otpData.otp !== otp) {
+      return res.status(400).json({ error: "Invalid OTP." });
+    }
+
+    await Otp.deleteOne({ email }); // Remove OTP after successful verification
+    res.status(200).json({ message: "OTP verified successfully." });
+  } catch (error) {
+    console.error("Error verifying OTP:", error.message);
+    res.status(500).json({ error: "Failed to verify OTP." });
+  }
+});
+
+// 3. Signup (Register User)
 app.post("/signup", async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    // Validate inputs
     if (!name || !email || !password) {
-      return res.status(400).json({ error: "All fields are required." });
+      return res
+        .status(400)
+        .json({ error: "Name, email, and password are required." });
     }
 
-    // Check for existing user
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(409).json({ error: "Email already exists." });
+      return res.status(400).json({ error: "Email is already registered." });
     }
 
-    // Hash the password and save the new user
     const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = new User({ name, email, password: hashedPassword });
-    await newUser.save();
+    await User.create({ name, email, password: hashedPassword });
 
-    res.status(201).json({ message: "User signed up successfully!" });
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: "Registration Successful",
+      text: `Welcome to our platform, ${name}! You have successfully registered.`,
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    res
+      .status(201)
+      .json({
+        message: "User registered successfully. Confirmation email sent.",
+      });
   } catch (error) {
     console.error("Signup error:", error.message);
-    res.status(500).json({ error: "Error signing up user." });
+    res.status(500).json({ error: "Signup failed." });
   }
 });
 
-// User Signin Route
+// 4. Signin (Login User)
 app.post("/signin", async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Validate inputs
     if (!email || !password) {
       return res
         .status(400)
         .json({ error: "Email and password are required." });
     }
 
-    // Find user by email
     const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ error: "User not found." });
-    }
 
-    // Validate password
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
+    if (!user || !(await bcrypt.compare(password, user.password))) {
       return res.status(401).json({ error: "Invalid email or password." });
     }
 
-    // Generate JWT
-    const token = jwt.sign({ _id: user._id, email: user.email }, JWT_KEY, {
-      expiresIn: "24h",
-    });
+    const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: "1h" });
 
-    res.status(200).json({
-      message: "Login successful",
-      user: { id: user._id, name: user.name, email: user.email },
-      token,
-    });
+    res.status(200).json({ message: "Signin successful.", token });
   } catch (error) {
     console.error("Signin error:", error.message);
-    res.status(500).json({ error: "Internal server error." });
+    res.status(500).json({ error: "Signin failed." });
   }
 });
 
