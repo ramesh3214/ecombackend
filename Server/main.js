@@ -16,7 +16,7 @@ dotenv.config();
 
 // App initialization
 const app = express();
-const PORT = 3002;
+const PORT = process.env.PORT;
 const JWT_SECRET= "jwt_123";
 
 // Middleware setup
