@@ -217,10 +217,10 @@ app.post("/signin", async (req, res) => {
     }
 
     // Generate JWT
-    const token = jwt.sign({ _id: user._id, email: user.email }, JWT_KEY, {
+    const token = jwt.sign({ _id: user._id, email: user.email }, JWT_SECRET, {
       expiresIn: "24h",
     });
-
+    
     res.status(200).json({
       message: "Login successful",
       user: { id: user._id, name: user.name, email: user.email },
