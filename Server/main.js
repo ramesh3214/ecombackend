@@ -10,14 +10,27 @@ import { Coupon } from "./Model/coupon.js";
 import { Contact } from "./Model/contact.js";
 import { Order } from "./Model/order.js";
 import nodemailer from "nodemailer";
+import { OAuth2Client } from "google-auth-library";
 
 // Load environment variables
 dotenv.config();
+const CLIENT_ID=process.env.CLIENTMain;
+const client = new OAuth2Client(CLIENT_ID);
 
 // App initialization
 const app = express();
 const PORT = process.env.PORT;
 const JWT_SECRET = "jwt_123";
+app.use((req, res, next) => {
+  res.removeHeader("Cross-Origin-Opener-Policy");
+  res.removeHeader("Cross-Origin-Embedder-Policy");
+
+  if (req.path === "/tokensignin") {
+    res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
+  }
+  
+  next();
+});
 
 // Middleware setup
 app.use(
@@ -36,6 +49,34 @@ mongoose
   .catch((error) => {
     console.error("MongoDB connection error:", error.message);
     process.exit(1); // Exit the app on failure to connect
+  });
+
+  app.post("/tokensignin", async (req, res) => {
+    const { idtoken } = req.body;
+  
+    try {
+      const ticket = await client.verifyIdToken({
+        idToken: idtoken,
+        audience: CLIENT_ID,
+      });
+  
+      const { email, name } = ticket.getPayload();
+  
+      let user = await User.findOne({ email });
+  
+      if (!user) {
+        user = await User.create({ name, email });
+      }
+  
+      res.status(200).json({
+        message: `Welcome, ${name}!`,
+        user,
+      });
+  
+    } catch (error) {
+      console.error("Token verification failed:", error);
+      res.status(400).json({ message: "Invalid token", error: error.message });
+    }
   });
 
 const verifyToken = (req, res, next) => {
@@ -62,7 +103,7 @@ app.get("/api", (req, res) => {
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
+  password: { type: String },
 });
 
 const User = mongoose.model("User", userSchema);
