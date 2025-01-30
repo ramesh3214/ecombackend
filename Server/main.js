@@ -5,10 +5,10 @@ import cors from "cors";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
-import { Product } from "./Model/Product.js";
-import { Coupon } from "./Model/coupon.js";
-import { Contact } from "./Model/contact.js";
-import { Order } from "./Model/order.js";
+import { Product } from "../Model/Product.js";
+import { Coupon } from "../Model/coupon.js";
+import { Contact } from "../Model/contact.js";
+import { Order } from "../Model/order.js";
 import nodemailer from "nodemailer";
 import { OAuth2Client } from "google-auth-library";
 
@@ -233,31 +233,29 @@ app.post("/signup", async (req, res) => {
   }
 });
 
-// 4. Signin (Login User)
 app.post("/signin", async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Validate inputs
+  
     if (!email || !password) {
       return res
         .status(400)
         .json({ error: "Email and password are required." });
     }
 
-    // Find user by email
+  
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(404).json({ error: "User not found." });
     }
 
-    // Validate password
+  
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       return res.status(401).json({ error: "Invalid email or password." });
     }
 
-    // Generate JWT
     const token = jwt.sign({ _id: user._id, email: user.email }, JWT_SECRET, {
       expiresIn: "24h",
     });
@@ -273,33 +271,24 @@ app.post("/signin", async (req, res) => {
   }
 });
 
-// Fetch Products Route
 app.get("/product", async (req, res) => {
   try {
-    const productdata = await Product.find(); // Awaiting the result of Product.find()
-    res.status(200).json(productdata); // Sending the data as JSON response
+    const productdata = await Product.find();
+    res.status(200).json(productdata);
   } catch (error) {
     console.error("Error fetching product data:", error);
     res.status(500).json({ message: "Failed to fetch product data" });
   }
 });
-
-// Update Profile Route
 app.put("/update-profile", verifyToken, async (req, res) => {
   try {
     const { name, email } = req.body;
-
-    // Ensure at least one field to update
     if (!name && !email) {
       return res.status(400).json({ error: "At least one field is required." });
     }
-
-    // Prepare updates
     const updates = {};
     if (name) updates.name = name;
     if (email) updates.email = email;
-
-    // Find and update user
     const updatedUser = await User.findByIdAndUpdate(req.user._id, updates, {
       new: true,
     });
@@ -353,7 +342,6 @@ app.post("/order", async (req, res) => {
   } = req.body;
 
   try {
-    // Validate required fields
     if (
       !email ||
       !orderNumber ||
@@ -365,8 +353,6 @@ app.post("/order", async (req, res) => {
     ) {
       return res.status(400).json({ message: "All fields are required." });
     }
-
-    // Create a new order
     const newOrder = new Order({
       email,
       orderNumber,
@@ -376,21 +362,16 @@ app.post("/order", async (req, res) => {
       selectedsize,
       selectedcolor,
     });
-
-    // Save order to the database
     const savedOrder = await newOrder.save();
-
-    // Return success response
     res
       .status(201)
       .json({ message: "Order created successfully", order: savedOrder });
   } catch (error) {
-    // Handle duplicate order number
+  
     if (error.code === 11000) {
       return res.status(400).json({ message: "Order number already exists." });
     }
 
-    // Handle other errors
     res
       .status(500)
       .json({ message: "Error creating order", error: error.message });
@@ -405,7 +386,7 @@ app.get("/orderdata", async (req, res) => {
     res.status(500).json({ message: "Failed to fetch order data" });
   }
 });
-// Start the Server
+
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
 });
