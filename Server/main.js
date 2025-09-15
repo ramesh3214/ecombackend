@@ -12,12 +12,12 @@ import { Order } from "../Model/order.js";
 import nodemailer from "nodemailer";
 import { OAuth2Client } from "google-auth-library";
 
-// Load environment variables
+
 dotenv.config();
 const CLIENT_ID=process.env.CLIENTMain;
 const client = new OAuth2Client(CLIENT_ID);
 
-// App initialization
+
 const app = express();
 const PORT = process.env.PORT;
 const JWT_SECRET = "jwt_123";
@@ -32,7 +32,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Middleware setup
+
 app.use(
   cors({
     origin: "*", // You can specify specific origins if needed
@@ -40,9 +40,8 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
-app.use(express.json()); // Parse JSON requests
+app.use(express.json());
 
-// MongoDB Connection
 mongoose
   .connect(process.env.MONGODB_URI, {})
   .then(() => console.log("Connected to MongoDB"))
