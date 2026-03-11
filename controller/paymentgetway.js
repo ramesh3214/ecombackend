@@ -31,7 +31,7 @@ export const createpayment = async (req, res) => {
         customer_details: customerdetail,
 
         order_meta: {
-          return_url: `http://localhost:9091/payment-success?order_id=${orderid}`,
+          return_url: `https://ecombackend-jdqm.onrender.com/payment-success?order_id=${orderid}`,
         },
       },
       {
@@ -90,11 +90,11 @@ export const paymentSuccessHandler = async (req, res) => {
     if (response.data?.order_status === "PAID") {
 
       // Payment successful → redirect to frontend success page
-      return res.redirect("http://localhost:3000/payment-success");
+      return res.redirect("https://elegant-dolphin-85cb1e.netlify.app/payment-success");
 
     } else {
 
-      return res.redirect("http://localhost:3000/payment-failed");
+      return res.redirect("https://elegant-dolphin-85cb1e.netlify.app/payment-failed");
 
     }
 
