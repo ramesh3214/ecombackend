@@ -30,7 +30,7 @@ app.use((req, res, next) => {
 // CORS configuration
 app.use(
   cors({
-    origin: "http://localhost:3000", // React frontend
+    origin: "https://elegant-dolphin-85cb1e.netlify.app", // React frontend
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
